@@ -13,6 +13,10 @@ variable "node_type" {
   description = "Redshift node type"
   type        = string
   default     = "ra3.xlplus"
+  validation {
+    condition     = contains(var.allowed_node_types, var.node_type)
+    error_message = "node_type '${var.node_type}' is not in allowed_node_types. Update var.node_type or allowed_node_types for your region/account."
+  }
 }
 
 variable "allowed_node_types" {
@@ -28,17 +32,6 @@ variable "allowed_node_types" {
     "ds2.8xlarge"
   ]
 }
-
-# Validate that chosen node_type is in allowed list (helps catch typos)
-variable "validation_helper_node_type" {
-  type    = string
-  default = ""
-  validation {
-    condition     = contains(var.allowed_node_types, var.node_type)
-    error_message = "node_type '${var.node_type}' is not in allowed_node_types. Update var.node_type or allowed_node_types for your region/account."
-  }
-}
-
 variable "cluster_type" {
   description = "single-node or multi-node"
   type        = string
