@@ -11,8 +11,12 @@ locals {
 resource "random_password" "master" {
   count            = var.master_password == "" ? 1 : 0
   length           = var.pwd_length
+  min_upper        = 1
+  min_lower        = 1
+  min_numeric      = 1
+  min_special      = 1
+  override_special = "!#%&*()_-+=[]{}<>?.,:$"
   special          = true
-  override_special = "!#$%&*()-_+=[]{}<>:?" # Valid special characters for Redshift admin passwords
   keepers = {
     cluster = var.cluster_identifier
   }
@@ -65,19 +69,34 @@ resource "aws_kms_alias" "redshift_alias" {
 resource "aws_s3_bucket" "redshift_logs" {
   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" ? 1 : 0
   bucket = "${replace(var.cluster_identifier, "/", "-")}-redshift-logs-${data.aws_caller_identity.current.account_id}"
-  # intentionally do not set the "acl" attribute here to avoid PutBucketAcl calls in accounts/buckets
-  # where ACLs are disabled (Object Ownership "Bucket owner enforced"). Rely on bucket policies or owner defaults.
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm     = "aws:kms"
-        kms_master_key_id = var.kms_key_id != "" ? var.kms_key_id : (length(aws_kms_key.redshift_kms_key) > 0 ? aws_kms_key.redshift_kms_key[0].arn : null)
-      }
-    }
-  }
-
+  # Intentionally do not set "acl" here to avoid PutBucketAcl calls in accounts with
+  # Object Ownership = Bucket owner enforced. Use aws_s3_bucket_acl only when allow_bucket_acl = true.
   tags = merge({ Name = "${var.cluster_identifier}-redshift-logs" }, var.tags)
 }
+
+# If user wants server-side encryption with KMS key, configure using dedicated resource
+resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs_kms" {
+  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && local.effective_kms_key_id != "" ? 1 : 0
+  bucket = aws_s3_bucket.redshift_logs[0].id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = local.effective_kms_key_id
+    }
+  }
+}
+
+# If no KMS key is provided, configure AES256 SSE using the dedicated resource
+resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs_aes" {
+  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && local.effective_kms_key_id == "" ? 1 : 0
+  bucket = aws_s3_bucket.redshift_logs[0].id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 # Optional aws_s3_bucket_acl only if caller explicitly enables ACL creation
 resource "aws_s3_bucket_acl" "redshift_logs" {
   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && var.allow_bucket_acl ? 1 : 0
@@ -281,7 +300,10 @@ resource "aws_redshift_cluster" "this" {
   automated_snapshot_retention_period = var.automated_snapshot_retention_period
   allow_version_upgrade               = true
   enhanced_vpc_routing                = var.enhanced_vpc_routing
-  tags                                = var.tags
+  # Final snapshot behaviour for deletes/replacements
+  skip_final_snapshot       = var.skip_final_snapshot
+  final_snapshot_identifier = var.skip_final_snapshot ? null : (var.final_snapshot_identifier != "" ? var.final_snapshot_identifier : null)
+  tags                      = var.tags
   lifecycle {
     ignore_changes = [
       # master_password rotations are done via secrets manager; prevent accidental re-creation from password rotation

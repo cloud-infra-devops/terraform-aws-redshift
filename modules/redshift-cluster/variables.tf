@@ -250,3 +250,13 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+variable "skip_final_snapshot" {
+  description = "Whether to skip creating a final snapshot when the Redshift cluster is deleted. If true, no final snapshot is created. If false, you MUST provide final_snapshot_identifier."
+  type        = bool
+  default     = true
+}
+variable "final_snapshot_identifier" {
+  description = "Name for the final snapshot to create when deleting the cluster. Required if skip_final_snapshot = false."
+  type        = string
+  default     = ""
+}
