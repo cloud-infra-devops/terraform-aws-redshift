@@ -87,10 +87,6 @@ resource "aws_s3_bucket_acl" "redshift_logs" {
   acl    = "private"
 }
 
-locals {
-  effective_logging_bucket = var.logging_s3_bucket_name != "" ? var.logging_s3_bucket_name : (var.create_log_bucket ? aws_s3_bucket.redshift_logs[0].bucket : "")
-  effective_kms_key_id     = var.kms_key_id != "" ? var.kms_key_id : (length(aws_kms_key.redshift) > 0 ? aws_kms_key.redshift[0].arn : "")
-}
 # resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs" {
 #   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" ? 1 : 0
 #   bucket = aws_s3_bucket.redshift_logs[0].id
