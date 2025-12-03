@@ -286,9 +286,9 @@ resource "aws_secretsmanager_secret_version" "redshift_master_version_post_clust
     username           = var.master_username
     password           = local.master_password
     dbname             = var.db_name
-    endpoint           = aws_redshift_cluster.this.endpoint
-    port               = aws_redshift_cluster.this.port
-    jdbc               = "jdbc:redshift://${aws_redshift_cluster.this.endpoint}:${aws_redshift_cluster.this.port}/${var.db_name}"
+    endpoint           = aws_redshift_cluster.this[0].endpoint
+    port               = aws_redshift_cluster.this[0].port
+    jdbc               = "jdbc:redshift://${aws_redshift_cluster.this[0].endpoint}:${aws_redshift_cluster.this[0].port}/${var.db_name}"
     cluster_identifier = var.cluster_identifier
   })
 }
