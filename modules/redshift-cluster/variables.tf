@@ -167,24 +167,6 @@ variable "redshift_port" {
   default     = 5439
 }
 
-variable "kms_key_id" {
-  description = "Optional existing KMS key id/arn to encrypt the cluster and secret. If empty, the module may create a KMS key when create_kms_key = true."
-  type        = string
-  default     = ""
-}
-
-variable "create_kms_key" {
-  description = "Whether to create a KMS key for encryption. If true and kms_key_id is empty, a key will be created."
-  type        = bool
-  default     = true
-}
-
-variable "kms_key_deletion_window_in_days" {
-  description = "Number of days before the KMS key is deleted after destruction"
-  type        = number
-  default     = 7
-}
-
 variable "create_log_bucket" {
   description = "Whether to create an S3 bucket for Redshift audit logging. If false, provide logging_s3_bucket_name."
   type        = bool
@@ -215,6 +197,23 @@ variable "enable_logging" {
   default     = true
 }
 
+variable "kms_key_id" {
+  description = "Optional existing KMS key id/arn to encrypt the cluster and secret. If empty, the module may create a KMS key when create_kms_key = true."
+  type        = string
+  default     = ""
+}
+
+variable "create_kms_key" {
+  description = "Whether to create a KMS key for encryption. If true and kms_key_id is empty, a key will be created."
+  type        = bool
+  default     = true
+}
+
+variable "kms_key_deletion_window_in_days" {
+  description = "Number of days before the KMS key is deleted after destruction"
+  type        = number
+  default     = 7
+}
 variable "preferred_maintenance_window" {
   description = "Maintenance window in the format ddd:hh:mi-ddd:hh:mi (e.g. 'sun:23:45-sun:23:55')"
   type        = string

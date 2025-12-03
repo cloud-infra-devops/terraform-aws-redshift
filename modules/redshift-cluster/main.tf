@@ -78,28 +78,64 @@ resource "aws_s3_bucket" "redshift_logs" {
   tags = merge({ Name = "${var.cluster_identifier}-redshift-logs" }, var.tags)
 }
 
-# If user wants server-side encryption with KMS key, configure using dedicated resource
-resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs_kms" {
-  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && local.effective_kms_key_id != "" ? 1 : 0
+# S3 bucket server-side encryption configuration for Redshift log bucket
+resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs_kms_provided" {
+  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && var.kms_key_id != "" ? 1 : 0
   bucket = aws_s3_bucket.redshift_logs[0].id
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = "aws:kms"
-      kms_master_key_id = local.effective_kms_key_id
+      kms_master_key_id = var.kms_key_id
+    }
+  }
+}
+# Use created KMS key for SSE
+resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs_kms_created" {
+  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && var.create_kms_key && var.kms_key_id == "" ? 1 : 0
+  bucket = aws_s3_bucket.redshift_logs[0].id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.redshift[0].arn
     }
   }
 }
 
-# If no KMS key is provided, configure AES256 SSE using the dedicated resource
+# Use AES256 SSE when no KMS key is present or being created
 resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs_aes" {
-  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && local.effective_kms_key_id == "" ? 1 : 0
+  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && var.kms_key_id == "" && !var.create_kms_key ? 1 : 0
   bucket = aws_s3_bucket.redshift_logs[0].id
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
     }
   }
 }
+
+# # If user wants server-side encryption with KMS key, configure using dedicated resource
+# resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs_kms" {
+#   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && local.effective_kms_key_id != "" ? 1 : 0
+#   bucket = aws_s3_bucket.redshift_logs[0].id
+#   rule {
+#     apply_server_side_encryption_by_default {
+#       sse_algorithm     = "aws:kms"
+#       kms_master_key_id = local.effective_kms_key_id
+#     }
+#   }
+# }
+
+# # If no KMS key is provided, configure AES256 SSE using the dedicated resource
+# resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs_aes" {
+#   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && local.effective_kms_key_id == "" ? 1 : 0
+#   bucket = aws_s3_bucket.redshift_logs[0].id
+#   rule {
+#     apply_server_side_encryption_by_default {
+#       sse_algorithm = "AES256"
+#     }
+#   }
+# }
 
 # Optional aws_s3_bucket_acl only if caller explicitly enables ACL creation
 resource "aws_s3_bucket_acl" "redshift_logs" {
