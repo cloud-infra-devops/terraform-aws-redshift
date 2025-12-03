@@ -97,9 +97,9 @@ variable "vpc_security_group_ids" {
 }
 
 variable "security_group_name" {
-  description = "Name to give the created security group (when create_security_group = true). Defaults to ${var.cluster_identifier}-sg"
-  type        = string
-  default     = ""
+  # description = "Name to give the created security group (when create_security_group = true). Defaults to ${var.cluster_identifier}-sg"
+  type    = string
+  default = ""
 }
 
 variable "security_group_description" {
