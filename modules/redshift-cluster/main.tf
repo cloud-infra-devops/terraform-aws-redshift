@@ -9,9 +9,10 @@ locals {
 }
 
 resource "random_password" "master" {
-  count   = var.master_password == "" ? 1 : 0
-  length  = var.pwd_length
-  special = true
+  count            = var.master_password == "" ? 1 : 0
+  length           = var.pwd_length
+  special          = true
+  override_special = "!#$%&*()-_+=[]{}<>:?" # Valid special characters for Redshift admin passwords
   keepers = {
     cluster = var.cluster_identifier
   }
