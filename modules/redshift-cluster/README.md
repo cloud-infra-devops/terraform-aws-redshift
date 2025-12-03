@@ -38,7 +38,13 @@ module "redshift" {
   }
 }
 ```
-
+S3 server-side encryption deprecation fix
+- The AWS provider deprecated the inline `server_side_encryption_configuration` nested block under `aws_s3_bucket`.
+- This module now uses the dedicated `aws_s3_bucket_server_side_encryption_configuration` resource to configure SSE.
+- If you provide a KMS key (`kms_key_id`), the module configures SSE with `aws:kms` and sets the KMS key on the bucket.
+- If no KMS key is provided and the module creates the bucket, it configures AES256 SSE.
+- The module avoids bucket ACL calls by default; set `allow_bucket_acl = true` only if your account/bucket supports ACLs.
+  
 Notes:
 - The module creates a Secrets Manager secret before cluster creation that contains the master username and password. The password is randomly generated if you do not pass master_password.
 - The IAM role created is assumable by Redshift and has the AWS managed policy `AmazonRedshiftFullAccess`. The module also attaches a policy allowing that role to call `secretsmanager:GetSecretValue` and key usage on the KMS key, so the cluster can access the secret if you use the role in your Redshift workflows.

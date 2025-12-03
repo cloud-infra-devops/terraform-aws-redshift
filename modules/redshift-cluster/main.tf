@@ -138,7 +138,7 @@ resource "aws_secretsmanager_secret" "redshift_master" {
 }
 
 # Post-cluster secret version: add endpoint/port/jdbc after cluster creation
-resource "aws_secretsmanager_secret_version" "redshift_master_version_post_cluster" {
+resource "aws_secretsmanager_secret_version" "redshift_master_version_post_cluster_creation" {
   # ensure cluster is created first so endpoint/port are available
   depends_on = [aws_secretsmanager_secret.redshift_master, aws_redshift_cluster.this]
   secret_id  = aws_secretsmanager_secret.redshift_master.id

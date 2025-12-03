@@ -2,7 +2,7 @@
 module "redshift" {
   source = "./modules/redshift-cluster"
 
-  cluster_identifier = "cts-redshift-module-demo"
+  cluster_identifier = "duke-ima-redshift-module-demo"
   vpc_id             = "vpc-07b3e9e8021bfb088"      # must exist in AWS account
   subnet_ids         = ["subnet-0260bb197628ace27"] # must exist in AWS account
   # vpc_security_group_ids = ["sg-0123456789abcdef0"]     # must exist
