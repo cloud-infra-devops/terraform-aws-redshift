@@ -97,7 +97,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs_kms
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = "aws:kms"
-      kms_master_key_id = aws_kms_key.redshift[0].arn
+      kms_master_key_id = aws_kms_key.redshift_kms_key[0].arn
     }
   }
 }
