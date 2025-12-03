@@ -1,6 +1,3 @@
-# provider "aws" {
-#   # configured by caller
-# }
 data "aws_caller_identity" "current" {}
 
 locals {
