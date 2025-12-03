@@ -78,7 +78,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs" {
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = "aws:kms"
-      kms_master_key_id = var.kms_key_id != "" ? var.kms_key_id : (length(aws_kms_key.redshift) > 0 ? aws_kms_key.redshift[0].arn : null)
+      kms_master_key_id = var.kms_key_id != "" ? var.kms_key_id : (length(aws_kms_key.redshift_kms_key) > 0 ? aws_kms_key.redshift_kms_key[0].arn : null)
     }
   }
 }
@@ -248,44 +248,26 @@ locals {
 
 # Redshift cluster
 resource "aws_redshift_cluster" "this" {
-  depends_on         = [aws_iam_role_policy_attachment.redshift_full_access]
-  count              = var.create_redshift_cluster ? 1 : 0
-  cluster_identifier = var.cluster_identifier
-  database_name      = var.db_name
-  master_username    = var.master_username
-  master_password    = local.master_password
-
-  node_type           = var.node_type
-  cluster_type        = var.cluster_type
-  publicly_accessible = var.redshift_accessibility_type
-  number_of_nodes     = var.cluster_type == "multi-node" ? var.number_of_nodes : null
-
-  cluster_subnet_group_name = local.redshift_subnet_group_name
-  vpc_security_group_ids    = local.redshift_vpc_security_group_ids
-
-  iam_roles = [aws_iam_role.redshift_role.arn]
-
-  encrypted  = true
-  kms_key_id = local.effective_kms_key_id != "" ? local.effective_kms_key_id : null
-
-  preferred_maintenance_window = var.preferred_maintenance_window != "" ? var.preferred_maintenance_window : null
-
+  depends_on                          = [aws_iam_role_policy_attachment.redshift_full_access]
+  count                               = var.create_redshift_cluster ? 1 : 0
+  cluster_identifier                  = var.cluster_identifier
+  database_name                       = var.db_name
+  master_username                     = var.master_username
+  master_password                     = local.master_password
+  node_type                           = var.node_type
+  cluster_type                        = var.cluster_type
+  publicly_accessible                 = var.redshift_accessibility_type
+  number_of_nodes                     = var.cluster_type == "multi-node" ? var.number_of_nodes : null
+  cluster_subnet_group_name           = local.redshift_subnet_group_name
+  vpc_security_group_ids              = local.redshift_vpc_security_group_ids
+  iam_roles                           = [aws_iam_role.redshift_role.arn]
+  encrypted                           = true
+  kms_key_id                          = local.effective_kms_key_id != "" ? local.effective_kms_key_id : null
+  preferred_maintenance_window        = var.preferred_maintenance_window != "" ? var.preferred_maintenance_window : null
   automated_snapshot_retention_period = var.automated_snapshot_retention_period
-
-  allow_version_upgrade = true
-  enhanced_vpc_routing  = var.enhanced_vpc_routing
-
-  dynamic "logging" {
-    for_each = var.enable_logging && local.effective_logging_bucket != "" ? [1] : []
-    content {
-      enable        = true
-      bucket_name   = local.effective_logging_bucket
-      s3_key_prefix = var.logging_s3_key_prefix
-    }
-  }
-
-  tags = var.tags
-
+  allow_version_upgrade               = true
+  enhanced_vpc_routing                = var.enhanced_vpc_routing
+  tags                                = var.tags
   lifecycle {
     ignore_changes = [
       # master_password rotations are done via secrets manager; prevent accidental re-creation from password rotation

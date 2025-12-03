@@ -35,7 +35,7 @@ output "kms_key_id" {
 
 output "secret_initial_version_id" {
   description = "Initial Secrets Manager secret version id (username/password/dbname)"
-  value       = aws_secretsmanager_secret_version.redshift_master_version_initial.version_id
+  value       = aws_secretsmanager_secret_version.redshift_master_version_post_cluster.version_id
   sensitive   = true
 }
 
