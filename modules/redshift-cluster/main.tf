@@ -25,6 +25,10 @@ resource "random_password" "master" {
   }
 }
 
+resource "random_id" "randomness" {
+  byte_length = 8
+}
+
 # Optional created KMS key
 resource "aws_kms_key" "redshift_kms_key" {
   count                   = var.create_kms_key && !local.kms_key_exists ? 1 : 0
@@ -104,24 +108,6 @@ resource "aws_s3_bucket_acl" "redshift_logs" {
   acl    = "private"
 }
 
-# resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs" {
-#   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" ? 1 : 0
-#   bucket = aws_s3_bucket.redshift_logs[0].id
-
-#   rule {
-#     apply_server_side_encryption_by_default {
-#       sse_algorithm     = "aws:kms"
-#       kms_master_key_id = var.kms_key_id != "" ? var.kms_key_id : (length(aws_kms_key.redshift_kms_key) > 0 ? aws_kms_key.redshift_kms_key[0].arn : null)
-#     }
-#   }
-# }
-
-# resource "aws_s3_bucket_acl" "redshift_logs" {
-#   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" ? 1 : 0
-#   bucket = aws_s3_bucket.redshift_logs[0].id
-#   acl    = "private"
-# }
-
 # Create a Redshift subnet group optionally using provided subnet_ids & vpc_id
 resource "aws_redshift_subnet_group" "this" {
   count       = var.create_subnet_group ? 1 : 0
@@ -145,12 +131,28 @@ locals {
 
 # Secrets Manager secret with master credentials
 resource "aws_secretsmanager_secret" "redshift_master" {
-  name        = "${var.cluster_identifier}-redshift-master-credentials"
+  name        = "${var.cluster_identifier}-redshift-master-credentials-${random_id.randomness.hex}"
   description = "Redshift master credentials for cluster ${var.cluster_identifier}"
   kms_key_id  = local.effective_kms_key_id != "" ? local.effective_kms_key_id : null
   tags        = merge({ Name = "${var.cluster_identifier}-redshift-secret" }, var.tags)
 }
 
+# Post-cluster secret version: add endpoint/port/jdbc after cluster creation
+resource "aws_secretsmanager_secret_version" "redshift_master_version_post_cluster" {
+  # ensure cluster is created first so endpoint/port are available
+  depends_on = [aws_secretsmanager_secret.redshift_master, aws_redshift_cluster.this]
+  secret_id  = aws_secretsmanager_secret.redshift_master.id
+
+  secret_string = jsonencode({
+    username           = var.master_username
+    password           = local.master_password
+    dbname             = var.db_name
+    endpoint           = aws_redshift_cluster.this[0].endpoint
+    port               = aws_redshift_cluster.this[0].port
+    jdbc               = "jdbc:redshift://${aws_redshift_cluster.this[0].endpoint}:${aws_redshift_cluster.this[0].port}/${var.db_name}"
+    cluster_identifier = var.cluster_identifier
+  })
+}
 # resource "aws_secretsmanager_secret_version" "redshift_master_version" {
 #   depends_on = [aws_secretsmanager_secret.redshift_master]
 #   secret_id  = aws_secretsmanager_secret.redshift_master.id
@@ -310,23 +312,6 @@ resource "aws_redshift_cluster" "this" {
       master_password
     ]
   }
-}
-
-# Post-cluster secret version: add endpoint/port/jdbc after cluster creation
-resource "aws_secretsmanager_secret_version" "redshift_master_version_post_cluster" {
-  # ensure cluster is created first so endpoint/port are available
-  depends_on = [aws_redshift_cluster.this]
-  secret_id  = aws_secretsmanager_secret.redshift_master.id
-
-  secret_string = jsonencode({
-    username           = var.master_username
-    password           = local.master_password
-    dbname             = var.db_name
-    endpoint           = aws_redshift_cluster.this[0].endpoint
-    port               = aws_redshift_cluster.this[0].port
-    jdbc               = "jdbc:redshift://${aws_redshift_cluster.this[0].endpoint}:${aws_redshift_cluster.this[0].port}/${var.db_name}"
-    cluster_identifier = var.cluster_identifier
-  })
 }
 
 # Basic CloudWatch alarm (optional)
