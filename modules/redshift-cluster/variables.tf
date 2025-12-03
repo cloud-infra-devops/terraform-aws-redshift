@@ -50,7 +50,6 @@ variable "master_password" {
   type        = string
   default     = ""
   sensitive   = true
-
   validation {
     condition = (
       var.master_password == ""
