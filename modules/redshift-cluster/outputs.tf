@@ -33,12 +33,6 @@ output "kms_key_id" {
   value       = local.effective_kms_key_id
 }
 
-# output "secret_initial_version_id" {
-#   description = "Initial Secrets Manager secret version id (username/password/dbname)"
-#   value       = aws_secretsmanager_secret_version.redshift_master_version_post_cluster_creation.version_id
-#   sensitive   = true
-# }
-
 output "secret_post_cluster_version_id" {
   description = "Secrets Manager secret version id that includes endpoint and port (created after cluster)"
   value       = aws_secretsmanager_secret_version.redshift_master_version_post_cluster_creation.version_id
