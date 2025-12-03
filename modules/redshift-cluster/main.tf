@@ -63,31 +63,51 @@ resource "aws_kms_alias" "redshift_alias" {
   target_key_id = aws_kms_key.redshift_kms_key[0].id
 }
 
-# S3 bucket for logs (optional creation)
+# S3 bucket for logs (optional creation) — do NOT set ACL or create aws_s3_bucket_acl by default, as Redshift requires full control
 resource "aws_s3_bucket" "redshift_logs" {
   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" ? 1 : 0
   bucket = "${replace(var.cluster_identifier, "/", "-")}-redshift-logs-${data.aws_caller_identity.current.account_id}"
+  # intentionally do not set the "acl" attribute here to avoid PutBucketAcl calls in accounts/buckets
+  # where ACLs are disabled (Object Ownership "Bucket owner enforced"). Rely on bucket policies or owner defaults.
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm     = "aws:kms"
+        kms_master_key_id = var.kms_key_id != "" ? var.kms_key_id : (length(aws_kms_key.redshift_kms_key) > 0 ? aws_kms_key.redshift_kms_key[0].arn : null)
+      }
+    }
+  }
 
   tags = merge({ Name = "${var.cluster_identifier}-redshift-logs" }, var.tags)
 }
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs" {
-  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" ? 1 : 0
-  bucket = aws_s3_bucket.redshift_logs[0].id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = "aws:kms"
-      kms_master_key_id = var.kms_key_id != "" ? var.kms_key_id : (length(aws_kms_key.redshift_kms_key) > 0 ? aws_kms_key.redshift_kms_key[0].arn : null)
-    }
-  }
-}
-
+# Optional aws_s3_bucket_acl only if caller explicitly enables ACL creation
 resource "aws_s3_bucket_acl" "redshift_logs" {
-  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" ? 1 : 0
+  count  = var.create_log_bucket && var.logging_s3_bucket_name == "" && var.allow_bucket_acl ? 1 : 0
   bucket = aws_s3_bucket.redshift_logs[0].id
   acl    = "private"
 }
+
+locals {
+  effective_logging_bucket = var.logging_s3_bucket_name != "" ? var.logging_s3_bucket_name : (var.create_log_bucket ? aws_s3_bucket.redshift_logs[0].bucket : "")
+  effective_kms_key_id     = var.kms_key_id != "" ? var.kms_key_id : (length(aws_kms_key.redshift) > 0 ? aws_kms_key.redshift[0].arn : "")
+}
+# resource "aws_s3_bucket_server_side_encryption_configuration" "redshift_logs" {
+#   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" ? 1 : 0
+#   bucket = aws_s3_bucket.redshift_logs[0].id
+
+#   rule {
+#     apply_server_side_encryption_by_default {
+#       sse_algorithm     = "aws:kms"
+#       kms_master_key_id = var.kms_key_id != "" ? var.kms_key_id : (length(aws_kms_key.redshift_kms_key) > 0 ? aws_kms_key.redshift_kms_key[0].arn : null)
+#     }
+#   }
+# }
+
+# resource "aws_s3_bucket_acl" "redshift_logs" {
+#   count  = var.create_log_bucket && var.logging_s3_bucket_name == "" ? 1 : 0
+#   bucket = aws_s3_bucket.redshift_logs[0].id
+#   acl    = "private"
+# }
 
 # Create a Redshift subnet group optionally using provided subnet_ids & vpc_id
 resource "aws_redshift_subnet_group" "this" {

@@ -46,10 +46,14 @@ variable "master_username" {
 }
 
 variable "master_password" {
-  description = "Master password. If not provided, a random password will be generated."
+  description = "Master password. If not provided, a random password will be generated. Must NOT contain / @ \" ' or space."
   type        = string
   default     = ""
   sensitive   = true
+  validation {
+    condition     = var.master_password == "" || length(regexall("[/@\"' ]", var.master_password)) == 0
+    error_message = "master_password must not contain any of these characters: / @ \" ' or space. If you don't want to provide a password, leave this blank and let the module generate one."
+  }
 }
 
 variable "pwd_length" {
@@ -166,6 +170,12 @@ variable "logging_s3_bucket_name" {
   description = "Existing S3 bucket name to store Redshift logs. If empty and create_log_bucket = true, a bucket will be created."
   type        = string
   default     = ""
+}
+
+variable "allow_bucket_acl" {
+  description = "Whether to allow bucket ACL creation for the S3 logging bucket"
+  type        = bool
+  default     = false
 }
 
 variable "logging_s3_key_prefix" {
