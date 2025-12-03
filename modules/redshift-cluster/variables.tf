@@ -46,13 +46,22 @@ variable "master_username" {
 }
 
 variable "master_password" {
-  description = "Master password. If not provided, a random password will be generated. Must NOT contain / @ \" ' or space."
+  description = "Master password. If not provided, a random password will be generated. If provided, it must be 8-64 chars and must NOT contain / @ \" ' or space."
   type        = string
   default     = ""
   sensitive   = true
+
   validation {
-    condition     = var.master_password == "" || length(regexall("[/@\"' ]", var.master_password)) == 0
-    error_message = "master_password must not contain any of these characters: / @ \" ' or space. If you don't want to provide a password, leave this blank and let the module generate one."
+    condition = (
+      var.master_password == ""
+      || length(regexall("^[A-Za-z0-9!#%&*()_\\-\\=\\+\\[\\]\\{\\}<>\\?\\.,:\\$]{8,64}$", var.master_password)) == 1
+    )
+    error_message = <<-EOT
+master_password must be empty (let the module generate one) or conform to:
+  - length between 8 and 64 characters
+  - only the following characters allowed: A-Z a-z 0-9 and these specials: ! # % & * ( ) _ - = + [ ] { } < > ? . , : $
+  - must NOT include: / @ \" ' or space
+EOT
   }
 }
 
